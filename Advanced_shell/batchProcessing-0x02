@@ -1,28 +1,63 @@
 #!/bin/bash
-# batchProcessing-0x02
-# Script to fetch data for multiple Pokémon and store each in its own file
+# Script: pokemon_fetch.sh
+# Objective: Fetch Pokémon data from the PokeAPI with error handling and retry logic
 
-API_BASE_URL="https://pokeapi.co/api/v2/pokemon"
-POKEMONS=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
-OUTPUT_DIR="pokemon_data"
+# Base API URL
+API_URL="https://pokeapi.co/api/v2/pokemon"
 
-# Create output directory if it doesn't exist
-mkdir -p "$OUTPUT_DIR"
+# Input file containing Pokémon names (one per line)
+INPUT_FILE="pokemon_list.txt"
 
-for pokemon in "${POKEMONS[@]}"; do
-    echo "Fetching data for $pokemon..."
-    OUTPUT_FILE="${OUTPUT_DIR}/${pokemon}.json"
+# Output file
+OUTPUT_FILE="pokemon_data.txt"
 
-    # Make the API request quietly (-s), and store only if successful (HTTP 200)
-    status_code=$(curl -s -w "%{http_code}" -o "$OUTPUT_FILE" "$API_BASE_URL/$pokemon")
+# Check if input file exists
+if [[ ! -f "$INPUT_FILE" ]]; then
+    echo "❌ Error: Input file '$INPUT_FILE' not found!"
+    exit 1
+fi
 
-    if [ "$status_code" -eq 200 ]; then
-        echo "Saved data to ${OUTPUT_FILE} ✅"
+# Clear previous output
+> "$OUTPUT_FILE"
+
+# Function to make API request with retry logic
+fetch_pokemon() {
+    local name=$1
+    local attempt=1
+    local max_attempts=3
+    local success=false
+
+    while [[ $attempt -le $max_attempts ]]; do
+        echo "🔍 Fetching data for '$name' (Attempt $attempt)..."
+        response=$(curl -s -w "%{http_code}" -o temp_response.json "$API_URL/$name")
+
+        http_code=${response: -3}
+        if [[ "$http_code" == "200" ]]; then
+            success=true
+            break
+        else
+            echo "⚠️ Attempt $attempt failed (HTTP $http_code)"
+            ((attempt++))
+            sleep 2  # Wait before retrying
+        fi
+    done
+
+    if [[ "$success" == true ]]; then
+        name=$(jq -r '.name' temp_response.json)
+        height=$(jq -r '.height' temp_response.json)
+        weight=$(jq -r '.weight' temp_response.json)
+        echo "$name | Height: $height | Weight: $weight" >> "$OUTPUT_FILE"
+        echo "✅ Successfully fetched data for '$name'"
     else
-        echo "❌ Failed to fetch data for ${pokemon} (HTTP $status_code)"
-        rm -f "$OUTPUT_FILE"  # remove incomplete file
+        echo "❌ Failed to fetch data for '$name' after $max_attempts attempts" >> errors.log
     fi
+}
 
-    # Add delay to handle rate-limiting
-    sleep 2
-done
+# Main loop
+echo "🚀 Starting Pokémon data fetch..."
+while read -r pokemon; do
+    [[ -z "$pokemon" ]] && continue  # Skip empty lines
+    fetch_pokemon "$pokemon"
+done < "$INPUT_FILE"
+
+echo "🎯 Process completed! Check '$OUTPUT_FILE' for results and 'errors.log' for failures."
