@@ -4,17 +4,19 @@
 
 DATA_FILE="data.json"
 
-# Check if the file exists
+# Check if data.json exists
 if [ ! -f "$DATA_FILE" ]; then
-    echo "❌ Error: data.json not found. Please run Task 0 first."
+    echo "❌ Error: data.json not found. Please run apiAutomation-0x00 first."
     exit 1
 fi
 
-# Extract values using jq
-name=$(jq -r '.name' "$DATA_FILE" | sed 's/.*/\u&/')  # Capitalize first letter
-height=$(jq -r '.height' "$DATA_FILE" | awk '{printf "%.1f", $1 / 10}')
-weight=$(jq -r '.weight' "$DATA_FILE" | awk '{printf "%.1f", $1 / 10}')
+# Extract fields with jq
+name=$(jq -r '.name' "$DATA_FILE" | sed 's/.*/\u&/')
 type=$(jq -r '.types[0].type.name' "$DATA_FILE" | sed 's/.*/\u&/')
 
-# Format and print output
-echo "${name} is of type ${type}, weighs ${weight}kg, and is ${height}m tall."
+# Convert height and weight to meters and kilograms using awk
+formatted_height=$(jq -r '.height' "$DATA_FILE" | awk '{printf "%.1f", $1 / 10}')
+formatted_weight=$(jq -r '.weight' "$DATA_FILE" | awk '{printf "%.1f", $1 / 10}')
+
+# Output in the exact required format
+echo "$name is of type $type, weighs ${formatted_weight}kg, and is ${formatted_height}m tall."
