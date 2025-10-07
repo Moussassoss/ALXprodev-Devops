@@ -1,0 +1,62 @@
+#!/bin/bash
+# --------------------------------------------------------
+# Script: pokemon_parallel.sh
+# Objective: Fetch Pokémon data in parallel using background processes
+# --------------------------------------------------------
+
+# Base API URL
+API_URL="https://pokeapi.co/api/v2/pokemon"
+
+# Pokémon list
+POKEMONS=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
+
+# Output files
+OUTPUT_FILE="pokemon_parallel_data.txt"
+ERROR_FILE="pokemon_parallel_errors.log"
+
+# Clear previous data
+> "$OUTPUT_FILE"
+> "$ERROR_FILE"
+
+# Function to fetch Pokémon data
+fetch_pokemon() {
+    local name=$1
+    local response
+    local http_code
+
+    echo "🔍 Fetching data for $name..."
+
+    # Make API request
+    response=$(curl -s -w "%{http_code}" -o temp_${name}.json "$API_URL/$name")
+    http_code=${response: -3}
+
+    if [[ "$http_code" == "200" ]]; then
+        # Parse data using jq
+        local pname=$(jq -r '.name' temp_${name}.json)
+        local height=$(jq -r '.height' temp_${name}.json)
+        local weight=$(jq -r '.weight' temp_${name}.json)
+        echo "$pname | Height: $height | Weight: $weight" >> "$OUTPUT_FILE"
+        echo "✅ $name fetched successfully."
+    else
+        echo "❌ Failed to fetch $name (HTTP $http_code)" >> "$ERROR_FILE"
+    fi
+
+    # Clean up
+    rm -f temp_${name}.json
+}
+
+# --------------------------------------------------------
+# Main parallel processing section
+# --------------------------------------------------------
+echo "🚀 Starting parallel data retrieval..."
+
+for pokemon in "${POKEMONS[@]}"; do
+    fetch_pokemon "$pokemon" &  # Run each in the background
+done
+
+# Wait for all background jobs to finish
+wait
+
+echo "🎯 All parallel fetches completed!"
+echo "✅ Data saved to: $OUTPUT_FILE"
+echo "⚠️ Errors logged in: $ERROR_FILE"
