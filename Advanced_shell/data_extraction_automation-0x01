@@ -1,0 +1,20 @@
+#!/bin/bash
+# data_extraction_automation-0x01
+# Extract and format Pokémon info from data.json
+
+DATA_FILE="data.json"
+
+# Check if the file exists
+if [ ! -f "$DATA_FILE" ]; then
+    echo "❌ Error: data.json not found. Please run Task 0 first."
+    exit 1
+fi
+
+# Extract values using jq
+name=$(jq -r '.name' "$DATA_FILE" | sed 's/.*/\u&/')  # Capitalize first letter
+height=$(jq -r '.height' "$DATA_FILE" | awk '{printf "%.1f", $1 / 10}')
+weight=$(jq -r '.weight' "$DATA_FILE" | awk '{printf "%.1f", $1 / 10}')
+type=$(jq -r '.types[0].type.name' "$DATA_FILE" | sed 's/.*/\u&/')
+
+# Format and print output
+echo "${name} is of type ${type}, weighs ${weight}kg, and is ${height}m tall."
